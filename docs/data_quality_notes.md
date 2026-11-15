@@ -1,6 +1,6 @@
 #### DATASET DATA QUALITY ANALYSIS
 
-##### listings.csv.gz
+##### LISTINGS | listings.csv.gz
 
 ###### NULL columns in listings.csv.gz
 - neighborhood_overview
@@ -17,7 +17,7 @@
 - calendar_updated
 - instant_bookable
 
-###### Decision on NULL colunns
+###### Decision on NULL colunns and columns which are useful for my analysis
 I decided to distribute the columns in three lists in the **/notebooks/01_exploration.ipynb** notebook:
 
 keep_col = ['id', 'host_id', 'name', 'host_listings_count', 'calculated_host_listings_count',
@@ -46,3 +46,20 @@ drop_col = ['listing_url', 'scrape_id', 'last_scraped', 'source', 'description',
  'number_of_reviews_l30d', 'number_of_reviews_ly',
  'calculated_host_listings_count_entire_homes', 'calculated_host_listings_count_private_rooms',
  'calculated_host_listings_count_shared_rooms']
+
+###### Host listing counts: inconsistency between 'host_listings_count' and 'calculated_host_listings_count'
+
+**Context.** `host_listings_count` (host-level count, likely from the host profile) and `calculated_host_listings_count` (computed by Inside Airbnb from the listings in this snapshot) are expected to be related: the host-level count should never be lower than the number of listings actually observed for that host in the dataset.
+
+**Findings** (snapshot 2026-09-19, 12,376 listings)
+| Relationship | Rows | Share |
+|---|---|---|
+| `host_listings_count` = `calculated_host_listings_count` | 9,917 | 80.1% |
+| `host_listings_count` > `calculated_host_listings_count` | 2,454 | 19.8% |
+| `host_listings_count` < `calculated_host_listings_count` | 5 | 0.04% |
+
+**Issue.** In 5 listings the host-level count is lower than the count observed in the dataset, which is logically inconsistent (a host cannot have fewer listings than we observe). Affected listing ids: `1562192543837144245`, `1562414364938331067`, `44483955`, `44872206`, `1633358579617436258`.
+
+**Interpretation (hypothesis, not verified).** The 2,454 cases where the host-level count is higher may reflect listings outside Berlin or outside this snapshot. The 5 inconsistent cases may come from stale or out-of-sync host data.
+
+**Decision.** Keep only `calculated_host_listings_count` in the core layer: its definition is consistent with the dataset, it has no inconsistencies, and it is identical to `host_listings_count` in 80% of rows. `host_listings_count` remains available in staging. The 5 records are retained and flagged here, not deleted.
